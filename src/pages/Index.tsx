@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ArrowRight, TrendingUp, Target, Shield, Sparkles, BarChart3, Wallet } from "lucide-react";
 import { Link } from "react-router-dom";
+import logo from "@/assets/90degrees-logo.png";
 
 const Index = () => {
   return (
@@ -10,9 +11,9 @@ const Index = () => {
       <nav className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Sparkles className="h-6 w-6 text-primary" />
-              <span className="text-xl font-bold bg-gradient-hero bg-clip-text text-transparent">WealthAI</span>
+            <div className="flex items-center gap-3">
+              <img src={logo} alt="90degrees Logo" className="h-12 w-12 object-contain" />
+              <span className="text-xl font-bold text-foreground">90degrees</span>
             </div>
             <div className="flex items-center gap-4">
               <Link to="/analysis">
@@ -155,11 +156,11 @@ const Index = () => {
       <footer className="border-t py-12 bg-card">
         <div className="container mx-auto px-6">
           <div className="text-center text-muted-foreground">
-            <div className="flex items-center justify-center gap-2 mb-4">
-              <Sparkles className="h-5 w-5 text-primary" />
-              <span className="font-semibold text-foreground">WealthAI</span>
+            <div className="flex items-center justify-center gap-3 mb-4">
+              <img src={logo} alt="90degrees Logo" className="h-8 w-8 object-contain" />
+              <span className="font-semibold text-foreground">90degrees</span>
             </div>
-            <p className="text-sm">© 2025 WealthAI. Your AI-powered wealth advisor.</p>
+            <p className="text-sm">© 2025 90degrees Asset Management LLP. Your AI-powered wealth advisor.</p>
           </div>
         </div>
       </footer>

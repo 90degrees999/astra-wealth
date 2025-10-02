@@ -5,6 +5,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Sparkles, TrendingUp, TrendingDown, Target, Wallet, Shield, ArrowLeft, PiggyBank } from "lucide-react";
 import { Link } from "react-router-dom";
+import logo from "@/assets/90degrees-logo.png";
 
 interface WealthData {
   monthlyIncome: string;
@@ -79,9 +80,9 @@ const Dashboard = () => {
       <nav className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
-            <Link to="/" className="flex items-center gap-2">
-              <Sparkles className="h-6 w-6 text-primary" />
-              <span className="text-xl font-bold bg-gradient-hero bg-clip-text text-transparent">WealthAI</span>
+            <Link to="/" className="flex items-center gap-3">
+              <img src={logo} alt="90degrees Logo" className="h-12 w-12 object-contain" />
+              <span className="text-xl font-bold text-foreground">90degrees</span>
             </Link>
             <div className="flex gap-4">
               <Link to="/analysis">

@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Sparkles, ArrowLeft } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import logo from "@/assets/90degrees-logo.png";
 
 const Analysis = () => {
   const navigate = useNavigate();
@@ -49,9 +50,9 @@ const Analysis = () => {
       <nav className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
-            <Link to="/" className="flex items-center gap-2">
-              <Sparkles className="h-6 w-6 text-primary" />
-              <span className="text-xl font-bold bg-gradient-hero bg-clip-text text-transparent">WealthAI</span>
+            <Link to="/" className="flex items-center gap-3">
+              <img src={logo} alt="90degrees Logo" className="h-12 w-12 object-contain" />
+              <span className="text-xl font-bold text-foreground">90degrees</span>
             </Link>
             <Link to="/">
               <Button variant="ghost" className="gap-2">
