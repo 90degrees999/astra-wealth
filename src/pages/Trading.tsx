@@ -1,11 +1,99 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, TrendingUp, PieChart, Landmark, Wallet } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { ArrowLeft } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useToast } from "@/hooks/use-toast";
 import logo from "@/assets/90degrees-logo.png";
 
 const Trading = () => {
+  const { toast } = useToast();
+  const [openAlgoUrl, setOpenAlgoUrl] = useState(localStorage.getItem('openalgo_url') || '');
+  const [apiKey, setApiKey] = useState(localStorage.getItem('openalgo_key') || '');
+  const [isConnected, setIsConnected] = useState(false);
+  const [holdings, setHoldings] = useState<any[]>([]);
+  const [positions, setPositions] = useState<any[]>([]);
+
+  const connectToOpenAlgo = async () => {
+    if (!openAlgoUrl || !apiKey) {
+      toast({
+        title: "Missing Configuration",
+        description: "Please enter both OpenAlgo URL and API Key",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const response = await fetch(`${openAlgoUrl}/api/v1/funds`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ apikey: apiKey }),
+      });
+
+      if (response.ok) {
+        localStorage.setItem('openalgo_url', openAlgoUrl);
+        localStorage.setItem('openalgo_key', apiKey);
+        setIsConnected(true);
+        toast({
+          title: "Connected Successfully",
+          description: "Your OpenAlgo instance is now connected",
+        });
+        loadHoldings();
+        loadPositions();
+      } else {
+        toast({
+          title: "Connection Failed",
+          description: "Please check your OpenAlgo URL and API Key",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Connection Error",
+        description: "Unable to connect to OpenAlgo instance",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const loadHoldings = async () => {
+    try {
+      const response = await fetch(`${openAlgoUrl}/api/v1/holdings`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apikey: apiKey }),
+      });
+      const data = await response.json();
+      if (data.status === 'success') {
+        setHoldings(data.data || []);
+      }
+    } catch (error) {
+      console.error('Failed to load holdings:', error);
+    }
+  };
+
+  const loadPositions = async () => {
+    try {
+      const response = await fetch(`${openAlgoUrl}/api/v1/positionbook`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apikey: apiKey }),
+      });
+      const data = await response.json();
+      if (data.status === 'success') {
+        setPositions(data.data || []);
+      }
+    } catch (error) {
+      console.error('Failed to load positions:', error);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Navigation */}
@@ -32,205 +120,196 @@ const Trading = () => {
       {/* Main Content */}
       <main className="container mx-auto px-6 py-12">
         <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-12">
-            <h1 className="text-4xl font-bold mb-4">Trading & Investment Portal</h1>
-            <p className="text-lg text-muted-foreground">
-              Connect with brokers to buy and sell shares, mutual funds, ETFs, and bonds
-            </p>
-          </div>
-
-          <Tabs defaultValue="stocks" className="space-y-8">
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="stocks" className="gap-2">
-                <TrendingUp className="h-4 w-4" />
-                Stocks
-              </TabsTrigger>
-              <TabsTrigger value="mutual-funds" className="gap-2">
-                <PieChart className="h-4 w-4" />
-                Mutual Funds
-              </TabsTrigger>
-              <TabsTrigger value="etf" className="gap-2">
-                <Wallet className="h-4 w-4" />
-                ETFs
-              </TabsTrigger>
-              <TabsTrigger value="bonds" className="gap-2">
-                <Landmark className="h-4 w-4" />
-                Bonds
-              </TabsTrigger>
-            </TabsList>
-
-            {/* Stocks Tab */}
-            <TabsContent value="stocks" className="space-y-6">
-              <Card className="p-8">
-                <div className="space-y-6">
-                  <div className="flex items-center gap-4 mb-6">
-                    <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                      <TrendingUp className="h-6 w-6 text-primary" />
-                    </div>
-                    <div>
-                      <h2 className="text-2xl font-bold">Stock Trading</h2>
-                      <p className="text-muted-foreground">Connect with leading brokers to trade equities</p>
-                    </div>
+          {!isConnected ? (
+            <Card className="max-w-2xl mx-auto">
+              <CardHeader>
+                <CardTitle>Connect to OpenAlgo</CardTitle>
+                <CardDescription>
+                  OpenAlgo is a self-hosted trading platform that connects to Zerodha and 20+ other brokers.
+                  You need to install OpenAlgo on your own infrastructure first.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="openalgo-url">OpenAlgo Instance URL</Label>
+                    <Input
+                      id="openalgo-url"
+                      type="url"
+                      placeholder="http://localhost:5000"
+                      value={openAlgoUrl}
+                      onChange={(e) => setOpenAlgoUrl(e.target.value)}
+                    />
+                    <p className="text-sm text-muted-foreground">
+                      The URL where your OpenAlgo instance is running
+                    </p>
                   </div>
 
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <Card className="p-6 bg-gradient-card border-2 hover:shadow-lg transition-all cursor-pointer">
-                      <h3 className="font-semibold text-lg mb-2">Zerodha</h3>
-                      <p className="text-sm text-muted-foreground mb-4">India's largest broker with lowest brokerage</p>
-                      <Button className="w-full">Connect Zerodha Account</Button>
-                    </Card>
+                  <div className="space-y-2">
+                    <Label htmlFor="api-key">API Key</Label>
+                    <Input
+                      id="api-key"
+                      type="password"
+                      placeholder="Your OpenAlgo API Key"
+                      value={apiKey}
+                      onChange={(e) => setApiKey(e.target.value)}
+                    />
+                    <p className="text-sm text-muted-foreground">
+                      Get this from your OpenAlgo dashboard after logging in
+                    </p>
+                  </div>
 
-                    <Card className="p-6 bg-gradient-card border-2 hover:shadow-lg transition-all cursor-pointer">
-                      <h3 className="font-semibold text-lg mb-2">Upstox</h3>
-                      <p className="text-sm text-muted-foreground mb-4">Modern trading platform with advanced tools</p>
-                      <Button className="w-full">Connect Upstox Account</Button>
-                    </Card>
+                  <Button onClick={connectToOpenAlgo} className="w-full">
+                    Connect to OpenAlgo
+                  </Button>
+                </div>
 
-                    <Card className="p-6 bg-gradient-card border-2 hover:shadow-lg transition-all cursor-pointer">
-                      <h3 className="font-semibold text-lg mb-2">Angel One</h3>
-                      <p className="text-sm text-muted-foreground mb-4">Full-service broker with research support</p>
-                      <Button className="w-full">Connect Angel One Account</Button>
-                    </Card>
-
-                    <Card className="p-6 bg-gradient-card border-2 hover:shadow-lg transition-all cursor-pointer">
-                      <h3 className="font-semibold text-lg mb-2">ICICI Direct</h3>
-                      <p className="text-sm text-muted-foreground mb-4">Banking-backed trading platform</p>
-                      <Button className="w-full">Connect ICICI Direct Account</Button>
-                    </Card>
+                <div className="border-t pt-6">
+                  <h3 className="font-semibold mb-2">Don't have OpenAlgo yet?</h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Follow these steps to set up OpenAlgo:
+                  </p>
+                  <ol className="text-sm space-y-2 list-decimal list-inside text-muted-foreground">
+                    <li>Visit <a href="https://docs.openalgo.in/getting-started" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">OpenAlgo Installation Guide</a></li>
+                    <li>Install OpenAlgo on your computer or server</li>
+                    <li>Connect your broker account (Zerodha, etc.)</li>
+                    <li>Get your API key from the OpenAlgo dashboard</li>
+                    <li>Return here and enter your OpenAlgo URL and API key</li>
+                  </ol>
+                  <div className="mt-4 flex gap-2">
+                    <Button variant="outline" asChild>
+                      <a href="https://github.com/marketcalls/openalgo" target="_blank" rel="noopener noreferrer">
+                        View on GitHub
+                      </a>
+                    </Button>
+                    <Button variant="outline" asChild>
+                      <a href="https://openalgo.in" target="_blank" rel="noopener noreferrer">
+                        Learn More
+                      </a>
+                    </Button>
                   </div>
                 </div>
-              </Card>
-            </TabsContent>
-
-            {/* Mutual Funds Tab */}
-            <TabsContent value="mutual-funds" className="space-y-6">
-              <Card className="p-8">
-                <div className="space-y-6">
-                  <div className="flex items-center gap-4 mb-6">
-                    <div className="h-12 w-12 rounded-xl bg-secondary/10 flex items-center justify-center">
-                      <PieChart className="h-6 w-6 text-secondary" />
-                    </div>
-                    <div>
-                      <h2 className="text-2xl font-bold">Mutual Funds Investment</h2>
-                      <p className="text-muted-foreground">Invest in curated mutual funds with zero commission</p>
-                    </div>
-                  </div>
-
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <Card className="p-6 bg-gradient-card border-2 hover:shadow-lg transition-all cursor-pointer">
-                      <h3 className="font-semibold text-lg mb-2">Groww</h3>
-                      <p className="text-sm text-muted-foreground mb-4">Direct mutual funds with zero commission</p>
-                      <Button className="w-full">Connect Groww Account</Button>
-                    </Card>
-
-                    <Card className="p-6 bg-gradient-card border-2 hover:shadow-lg transition-all cursor-pointer">
-                      <h3 className="font-semibold text-lg mb-2">Kuvera</h3>
-                      <p className="text-sm text-muted-foreground mb-4">Goal-based mutual fund investing</p>
-                      <Button className="w-full">Connect Kuvera Account</Button>
-                    </Card>
-
-                    <Card className="p-6 bg-gradient-card border-2 hover:shadow-lg transition-all cursor-pointer">
-                      <h3 className="font-semibold text-lg mb-2">Paytm Money</h3>
-                      <p className="text-sm text-muted-foreground mb-4">Easy mutual fund investments via Paytm</p>
-                      <Button className="w-full">Connect Paytm Money Account</Button>
-                    </Card>
-
-                    <Card className="p-6 bg-gradient-card border-2 hover:shadow-lg transition-all cursor-pointer">
-                      <h3 className="font-semibold text-lg mb-2">ET Money</h3>
-                      <p className="text-sm text-muted-foreground mb-4">Smart mutual fund recommendations</p>
-                      <Button className="w-full">Connect ET Money Account</Button>
-                    </Card>
-                  </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <>
+              <div className="mb-6 flex justify-between items-center">
+                <div>
+                  <h1 className="text-3xl font-bold">Trading Portal</h1>
+                  <p className="text-muted-foreground">Connected to OpenAlgo</p>
                 </div>
-              </Card>
-            </TabsContent>
+                <Button variant="outline" onClick={() => setIsConnected(false)}>
+                  Disconnect
+                </Button>
+              </div>
 
-            {/* ETF Tab */}
-            <TabsContent value="etf" className="space-y-6">
-              <Card className="p-8">
-                <div className="space-y-6">
-                  <div className="flex items-center gap-4 mb-6">
-                    <div className="h-12 w-12 rounded-xl bg-accent/10 flex items-center justify-center">
-                      <Wallet className="h-6 w-6 text-accent" />
-                    </div>
-                    <div>
-                      <h2 className="text-2xl font-bold">ETF Trading</h2>
-                      <p className="text-muted-foreground">Trade exchange-traded funds for diversified exposure</p>
-                    </div>
-                  </div>
+              <Tabs defaultValue="holdings" className="w-full">
+                <TabsList className="grid w-full grid-cols-4">
+                  <TabsTrigger value="holdings">Holdings</TabsTrigger>
+                  <TabsTrigger value="positions">Positions</TabsTrigger>
+                  <TabsTrigger value="orders">Orders</TabsTrigger>
+                  <TabsTrigger value="trade">Place Order</TabsTrigger>
+                </TabsList>
 
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <Card className="p-6 bg-gradient-card border-2 hover:shadow-lg transition-all cursor-pointer">
-                      <h3 className="font-semibold text-lg mb-2">Zerodha Coin</h3>
-                      <p className="text-sm text-muted-foreground mb-4">Direct mutual funds and ETFs on Zerodha</p>
-                      <Button className="w-full">Connect Zerodha Coin</Button>
-                    </Card>
+                <TabsContent value="holdings" className="space-y-4">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Your Holdings</CardTitle>
+                      <CardDescription>Stocks and securities in your demat account</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      {holdings.length === 0 ? (
+                        <p className="text-muted-foreground">No holdings found</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {holdings.map((holding, index) => (
+                            <div key={index} className="flex justify-between items-center p-3 border rounded">
+                              <div>
+                                <p className="font-semibold">{holding.symbol}</p>
+                                <p className="text-sm text-muted-foreground">Qty: {holding.quantity}</p>
+                              </div>
+                              <div className="text-right">
+                                <p className="font-semibold">₹{holding.ltp?.toFixed(2)}</p>
+                                <p className={`text-sm ${(holding.pnl || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                  {(holding.pnl || 0) >= 0 ? '+' : ''}₹{holding.pnl?.toFixed(2)}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </TabsContent>
 
-                    <Card className="p-6 bg-gradient-card border-2 hover:shadow-lg transition-all cursor-pointer">
-                      <h3 className="font-semibold text-lg mb-2">NSE/BSE Direct</h3>
-                      <p className="text-sm text-muted-foreground mb-4">Trade ETFs directly on stock exchanges</p>
-                      <Button className="w-full">Connect Exchange Account</Button>
-                    </Card>
+                <TabsContent value="positions" className="space-y-4">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Open Positions</CardTitle>
+                      <CardDescription>Your active trading positions</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      {positions.length === 0 ? (
+                        <p className="text-muted-foreground">No open positions</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {positions.map((position, index) => (
+                            <div key={index} className="flex justify-between items-center p-3 border rounded">
+                              <div>
+                                <p className="font-semibold">{position.symbol}</p>
+                                <p className="text-sm text-muted-foreground">Qty: {position.quantity}</p>
+                              </div>
+                              <div className="text-right">
+                                <p className="font-semibold">₹{position.ltp?.toFixed(2)}</p>
+                                <p className={`text-sm ${(position.pnl || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                  {(position.pnl || 0) >= 0 ? '+' : ''}₹{position.pnl?.toFixed(2)}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </TabsContent>
 
-                    <Card className="p-6 bg-gradient-card border-2 hover:shadow-lg transition-all cursor-pointer">
-                      <h3 className="font-semibold text-lg mb-2">Groww ETF</h3>
-                      <p className="text-sm text-muted-foreground mb-4">Simple ETF investing platform</p>
-                      <Button className="w-full">Connect Groww Account</Button>
-                    </Card>
+                <TabsContent value="orders" className="space-y-4">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Order Management</CardTitle>
+                      <CardDescription>View and manage your orders through OpenAlgo dashboard</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <Button asChild>
+                        <a href={openAlgoUrl} target="_blank" rel="noopener noreferrer">
+                          Open OpenAlgo Dashboard
+                        </a>
+                      </Button>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
 
-                    <Card className="p-6 bg-gradient-card border-2 hover:shadow-lg transition-all cursor-pointer">
-                      <h3 className="font-semibold text-lg mb-2">Upstox ETF</h3>
-                      <p className="text-sm text-muted-foreground mb-4">Low-cost ETF trading</p>
-                      <Button className="w-full">Connect Upstox Account</Button>
-                    </Card>
-                  </div>
-                </div>
-              </Card>
-            </TabsContent>
-
-            {/* Bonds Tab */}
-            <TabsContent value="bonds" className="space-y-6">
-              <Card className="p-8">
-                <div className="space-y-6">
-                  <div className="flex items-center gap-4 mb-6">
-                    <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                      <Landmark className="h-6 w-6 text-primary" />
-                    </div>
-                    <div>
-                      <h2 className="text-2xl font-bold">Bond Investment</h2>
-                      <p className="text-muted-foreground">Invest in government and corporate bonds for stable returns</p>
-                    </div>
-                  </div>
-
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <Card className="p-6 bg-gradient-card border-2 hover:shadow-lg transition-all cursor-pointer">
-                      <h3 className="font-semibold text-lg mb-2">GoldenPi</h3>
-                      <p className="text-sm text-muted-foreground mb-4">Corporate and government bonds platform</p>
-                      <Button className="w-full">Connect GoldenPi Account</Button>
-                    </Card>
-
-                    <Card className="p-6 bg-gradient-card border-2 hover:shadow-lg transition-all cursor-pointer">
-                      <h3 className="font-semibold text-lg mb-2">Wint Wealth</h3>
-                      <p className="text-sm text-muted-foreground mb-4">Fixed income investment platform</p>
-                      <Button className="w-full">Connect Wint Wealth Account</Button>
-                    </Card>
-
-                    <Card className="p-6 bg-gradient-card border-2 hover:shadow-lg transition-all cursor-pointer">
-                      <h3 className="font-semibold text-lg mb-2">Yield</h3>
-                      <p className="text-sm text-muted-foreground mb-4">Digital bond investing made simple</p>
-                      <Button className="w-full">Connect Yield Account</Button>
-                    </Card>
-
-                    <Card className="p-6 bg-gradient-card border-2 hover:shadow-lg transition-all cursor-pointer">
-                      <h3 className="font-semibold text-lg mb-2">RBI Retail Direct</h3>
-                      <p className="text-sm text-muted-foreground mb-4">Direct government securities investment</p>
-                      <Button className="w-full">Connect RBI Account</Button>
-                    </Card>
-                  </div>
-                </div>
-              </Card>
-            </TabsContent>
-          </Tabs>
+                <TabsContent value="trade" className="space-y-4">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Place Orders</CardTitle>
+                      <CardDescription>Use OpenAlgo dashboard for advanced order placement</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-muted-foreground mb-4">
+                        For the best trading experience with advanced features like smart orders, basket orders, and strategy execution, use the OpenAlgo dashboard directly.
+                      </p>
+                      <Button asChild>
+                        <a href={openAlgoUrl} target="_blank" rel="noopener noreferrer">
+                          Open OpenAlgo Dashboard
+                        </a>
+                      </Button>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+              </Tabs>
+            </>
+          )}
         </div>
       </main>
     </div>
