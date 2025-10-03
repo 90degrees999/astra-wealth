@@ -11,13 +11,22 @@ const Index = () => {
       <nav className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
+            <Link to="/" className="flex items-center gap-3">
               <img src={logo} alt="90degrees Logo" className="h-12 w-12 object-contain" />
-              <span className="text-xl font-bold text-foreground">90degrees</span>
-            </div>
+              <div className="flex flex-col">
+                <span className="text-xl font-bold text-foreground">90degrees</span>
+                <span className="text-xs text-muted-foreground">90 Degrees Asset Management LLP</span>
+              </div>
+            </Link>
             <div className="flex items-center gap-4">
+              <Link to="/trading">
+                <Button variant="ghost">Trading</Button>
+              </Link>
+              <Link to="/dashboard">
+                <Button variant="ghost">Dashboard</Button>
+              </Link>
               <Link to="/analysis">
-                <Button variant="ghost">Get Started</Button>
+                <Button variant="default">Get Started</Button>
               </Link>
             </div>
           </div>
@@ -158,9 +167,12 @@ const Index = () => {
           <div className="text-center text-muted-foreground">
             <div className="flex items-center justify-center gap-3 mb-4">
               <img src={logo} alt="90degrees Logo" className="h-8 w-8 object-contain" />
-              <span className="font-semibold text-foreground">90degrees</span>
+              <div className="flex flex-col items-center">
+                <span className="font-semibold text-foreground">90degrees</span>
+                <span className="text-xs text-muted-foreground">90 Degrees Asset Management LLP</span>
+              </div>
             </div>
-            <p className="text-sm">© 2025 90degrees Asset Management LLP. Your AI-powered wealth advisor.</p>
+            <p className="text-sm">© 2025 90 Degrees Asset Management LLP. Your AI-powered wealth advisor.</p>
           </div>
         </div>
       </footer>

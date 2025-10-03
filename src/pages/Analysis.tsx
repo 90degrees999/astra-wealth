@@ -52,7 +52,10 @@ const Analysis = () => {
           <div className="flex items-center justify-between">
             <Link to="/" className="flex items-center gap-3">
               <img src={logo} alt="90degrees Logo" className="h-12 w-12 object-contain" />
-              <span className="text-xl font-bold text-foreground">90degrees</span>
+              <div className="flex flex-col">
+                <span className="text-xl font-bold text-foreground">90degrees</span>
+                <span className="text-xs text-muted-foreground">90 Degrees Asset Management LLP</span>
+              </div>
             </Link>
             <Link to="/">
               <Button variant="ghost" className="gap-2">
