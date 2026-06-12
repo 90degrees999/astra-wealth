@@ -1,0 +1,97 @@
+{
+  "updatedAt": "2026-05-18 17:17:30",
+  "sourceMode": "snapshot",
+  "sourceNote": "Static Project90 export snapshot. Replace this file or connect a live endpoint later.",
+  "signal": {
+    "generatedAt": "2026-04-21 22:03:30",
+    "signalDate": "2026-04-21",
+    "previousClose": 24576.6,
+    "probability": 0.8667,
+    "confidence": "HIGH CONFIDENCE",
+    "threshold": 0.7,
+    "trade": true,
+    "tradeLabel": "YES - Big move expected"
+  },
+  "forecast": {
+    "generatedAt": "2026-05-18 17:17:30",
+    "signalDate": "2026-05-15",
+    "currentClose": 23643.5,
+    "predictedNextClose": 23648.38,
+    "predictedMovePoints": 4.88,
+    "predictedMovePct": 0.0207,
+    "expectedMoveRangePoints": [-237.76, 247.52],
+    "interpretation": {
+      "directionBias": "UP",
+      "magnitudeBucket": "VERY_SMALL",
+      "uncertaintyBucket": "WIDE",
+      "summaryText": "Direction bias: UP. Expected move: 4.88 pts (0.021%). Magnitude bucket: VERY_SMALL. Uncertainty band: -237.76 to 247.52 pts (WIDE)."
+    }
+  },
+  "performance": {
+    "overall": {
+      "evaluationDays": 4288,
+      "accuracyPct": 53.4748,
+      "tradeFrequencyPct": 28.778,
+      "hitRatePctOnTradeDays": 53.3225,
+      "auc": 0.552084,
+      "threshold": 0.7
+    },
+    "rolling": [
+      {
+        "window": "63D",
+        "accuracyPct": 63.4921,
+        "tradeFrequencyPct": 58.7302,
+        "hitRatePctOnTradeDays": 72.973,
+        "auc": 0.709239
+      },
+      {
+        "window": "126D",
+        "accuracyPct": 65.873,
+        "tradeFrequencyPct": 34.9206,
+        "hitRatePctOnTradeDays": 63.6364,
+        "auc": 0.702817
+      },
+      {
+        "window": "252D",
+        "accuracyPct": 64.2857,
+        "tradeFrequencyPct": 26.1905,
+        "hitRatePctOnTradeDays": 54.5455,
+        "auc": 0.654714
+      },
+      {
+        "window": "504D",
+        "accuracyPct": 59.5238,
+        "tradeFrequencyPct": 26.1905,
+        "hitRatePctOnTradeDays": 46.9697,
+        "auc": 0.594272
+      }
+    ]
+  },
+  "operations": {
+    "timezone": "Asia/Kolkata",
+    "entryWindow": "09:20-09:45",
+    "exitTime": "15:16",
+    "signalTime": "22:20",
+    "tokenRefreshTimes": ["08:45", "08:53", "09:05"],
+    "telegramEnabled": true,
+    "vpsMode": true
+  },
+  "recentEvents": [
+    {
+      "timestamp": "2026-05-18 17:17:30",
+      "title": "Price Forecast Sent",
+      "detail": "Separate price forecast and interpretation message delivered to Telegram."
+    },
+    {
+      "timestamp": "2026-04-27 22:36:24",
+      "title": "Nightly Signal Sent",
+      "detail": "Main Project90 signal delivered to Telegram after nightly run."
+    },
+    {
+      "timestamp": "2026-04-27 22:20:05",
+      "title": "Nightly Signal Run Started",
+      "detail": "Nightly classifier started on VPS with IST-aligned cron."
+    }
+  ],
+  "recentTrades": []
+}

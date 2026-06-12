@@ -19,6 +19,9 @@ const Index = () => {
               </div>
             </Link>
             <div className="flex items-center gap-4">
+              <Link to="/strategy">
+                <Button variant="ghost">Strategy</Button>
+              </Link>
               <Link to="/trading">
                 <Button variant="ghost">Trading</Button>
               </Link>
@@ -53,6 +56,11 @@ const Index = () => {
               Build wealth confidently with actionable insights tailored just for you.
             </p>
             <div className="flex gap-4 justify-center pt-4">
+              <Link to="/strategy">
+                <Button size="lg" variant="outline" className="gap-2">
+                  Open Strategy Console
+                </Button>
+              </Link>
               <Link to="/analysis">
                 <Button size="lg" className="gap-2 shadow-lg hover:shadow-xl transition-all">
                   Start Free Analysis
@@ -79,6 +87,16 @@ const Index = () => {
             </p>
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
+            <Card className="p-6 hover:shadow-lg transition-all bg-gradient-card border-2">
+              <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center mb-4">
+                <BarChart3 className="h-6 w-6 text-primary" />
+              </div>
+              <h3 className="text-xl font-semibold mb-2">Strategy Command Center</h3>
+              <p className="text-muted-foreground">
+                Monitor nightly signals, forecast ranges, automation timing, and model health from one live console
+              </p>
+            </Card>
+
             <Card className="p-6 hover:shadow-lg transition-all bg-gradient-card border-2">
               <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center mb-4">
                 <BarChart3 className="h-6 w-6 text-primary" />
