@@ -9,6 +9,7 @@ import Dashboard from "./pages/Dashboard";
 import StrategyDashboard from "./pages/StrategyDashboard";
 import Trading from "./pages/Trading";
 import NotFound from "./pages/NotFound";
+import AppPortal from "./pages/AppPortal";
 
 const queryClient = new QueryClient();
 
@@ -24,6 +25,7 @@ const App = () => (
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/strategy" element={<StrategyDashboard />} />
           <Route path="/trading" element={<Trading />} />
+          <Route path="/app" element={<AppPortal />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
