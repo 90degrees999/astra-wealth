@@ -13,14 +13,17 @@ import AppPortal from "./pages/AppPortal";
 
 const queryClient = new QueryClient();
 
-const App = () => (
+const App = () => {
+  const isPrivateAppHost = window.location.hostname === "app.90degreesfintech.com";
+
+  return (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
       <Sonner />
       <HashRouter>
         <Routes>
-          <Route path="/" element={<Index />} />
+          <Route path="/" element={isPrivateAppHost ? <AppPortal /> : <Index />} />
           <Route path="/analysis" element={<Analysis />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/strategy" element={<StrategyDashboard />} />
@@ -32,6 +35,7 @@ const App = () => (
       </HashRouter>
     </TooltipProvider>
   </QueryClientProvider>
-);
+  );
+};
 
 export default App;
