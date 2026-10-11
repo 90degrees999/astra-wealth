@@ -1,434 +1,133 @@
-import { useMemo } from "react";
+import { useDeferredValue, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import {
-  Activity,
-  ArrowLeft,
-  Bot,
-  Clock3,
-  Database,
-  Gauge,
-  LineChart,
-  Radar,
-  Send,
-  ShieldCheck,
-  TrendingUp,
+  Activity, ArrowUpRight, BadgeCheck, Bot, CalendarClock, ChartNoAxesCombined,
+  CircleDollarSign, Clock3, Database, Filter, Gauge, Landmark, LineChart,
+  LockKeyhole, Radar, RefreshCw, ShieldCheck, TrendingDown, TrendingUp,
 } from "lucide-react";
-import {
-  Area,
-  AreaChart,
-  Bar,
-  BarChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 import logo from "@/assets/90degrees-logo.png";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 
-type Snapshot = {
-  updatedAt: string;
-  sourceMode: string;
-  sourceNote: string;
-  signal: {
-    generatedAt: string;
-    signalDate: string;
-    previousClose: number;
-    probability: number;
-    confidence: string;
-    threshold: number;
-    trade: boolean;
-    tradeLabel: string;
-  };
-  forecast: {
-    generatedAt: string;
-    signalDate: string;
-    currentClose: number;
-    predictedNextClose: number;
-    predictedMovePoints: number;
-    predictedMovePct: number;
-    expectedMoveRangePoints: [number, number];
-    interpretation: {
-      directionBias: string;
-      magnitudeBucket: string;
-      uncertaintyBucket: string;
-      summaryText: string;
-    };
-  };
-  performance: {
-    overall: {
-      evaluationDays: number;
-      accuracyPct: number;
-      tradeFrequencyPct: number;
-      hitRatePctOnTradeDays: number;
-      auc: number;
-      threshold: number;
-    };
-    rolling: Array<{
-      window: string;
-      accuracyPct: number;
-      tradeFrequencyPct: number;
-      hitRatePctOnTradeDays: number;
-      auc: number;
-    }>;
-  };
-  operations: {
-    timezone: string;
-    entryWindow: string;
-    exitTime: string;
-    signalTime: string;
-    tokenRefreshTimes: string[];
-    telegramEnabled: boolean;
-    vpsMode: boolean;
-  };
-  recentEvents: Array<{
-    timestamp: string;
-    title: string;
-    detail: string;
-  }>;
-  recentTrades: Array<Record<string, unknown>>;
+type Trade = {
+  TradeDate?: string; EntryTime?: string; ExitTime?: string; Status?: string;
+  GrossPnL?: string; NetPnL?: string; CEEntry?: string; PEEntry?: string;
+  CEExit?: string; PEExit?: string; LotQty?: string;
 };
 
-const StrategyDashboard = () => {
-  const dashboardApiUrl = import.meta.env.VITE_PROJECT90_API_URL?.replace(/\/$/, "");
-  const snapshotUrl = dashboardApiUrl
-    ? `${dashboardApiUrl}/api/v1/overview`
-    : "/strategy/project90-dashboard.json";
+type Snapshot = {
+  updatedAt: string; sourceMode: string; sourceNote: string;
+  signal: { generatedAt: string; signalDate: string; previousClose: number; probability: number; confidence: string; threshold: number; trade: boolean; tradeLabel: string };
+  forecast: { generatedAt: string; signalDate: string; currentClose: number; predictedNextClose: number; predictedMovePoints: number; predictedMovePct: number; expectedMoveRangePoints: [number, number]; interpretation: { directionBias: string; magnitudeBucket: string; uncertaintyBucket: string; summaryText: string } };
+  performance: { overall: { evaluationDays: number; accuracyPct: number; tradeFrequencyPct: number; hitRatePctOnTradeDays: number; auc: number }; rolling: Array<{ window: string; accuracyPct: number; tradeFrequencyPct: number; hitRatePctOnTradeDays: number; auc: number }> };
+  operations: { timezone: string; entryWindow: string; exitTime: string; signalTime: string; tokenRefreshTimes: string[]; telegramEnabled: boolean; vpsMode: boolean };
+  controls: { liveTradingEnabled: boolean; writeActionsEnabled: boolean; shortVol90: string; intraday90: string };
+  dataHealth: { latestDhanDailyDate: string | null; signalAgeSeconds: number | null; signalFilePresent: boolean; orderStatePresent: boolean };
+  position: { status: string; detail: string; legs: Array<{ name: string; securityId: string; strike: number; entryPrice: number; filledQty: number; status: string; hasExitOrder: boolean }> };
+  tradeAnalytics: { records: number; completedTrades: number; realisedNetPnl: number; averageTradePnl: number; winRatePct: number; wins: number; losses: number; latestTradeDate: string };
+  recentEvents: Array<{ timestamp: string; title: string; detail: string }>;
+  recentTrades: Trade[];
+  signalHistory: Array<{ SignalDate?: string; Close?: string; Probability?: string; Confidence?: string; Signal?: string; ActualMove?: string; Correct?: string }>;
+};
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ["strategy-dashboard"],
+const apiBase = import.meta.env.VITE_PROJECT90_API_URL?.replace(/\/$/, "");
+const currency = (value: number) => new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(value || 0);
+const number = (value: string | number | undefined) => Number(value || 0);
+const signalClass = (enabled: boolean) => enabled ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-amber-300 bg-amber-50 text-amber-800";
+
+const Metric = ({ label, value, detail, positive }: { label: string; value: string; detail: string; positive?: boolean }) => (
+  <div className="border-l border-[#1a3026]/10 pl-5 first:border-l-0 first:pl-0">
+    <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#708077]">{label}</p>
+    <p className={`mt-2 text-2xl font-semibold tracking-tight ${positive === undefined ? "text-[#15271f]" : positive ? "text-[#11713a]" : "text-[#9b382e]"}`}>{value}</p>
+    <p className="mt-1 text-xs text-[#708077]">{detail}</p>
+  </div>
+);
+
+const StrategyDashboard = () => {
+  const [query, setQuery] = useState("");
+  const deferredQuery = useDeferredValue(query);
+  const snapshotUrl = apiBase ? `${apiBase}/api/v1/overview` : "/strategy/project90-dashboard.json";
+  const { data, isLoading, error, refetch, isFetching } = useQuery({
+    queryKey: ["project90-command-centre"],
     queryFn: async (): Promise<Snapshot> => {
-      const response = await fetch(snapshotUrl, {
-        cache: "no-store",
-        credentials: dashboardApiUrl ? "include" : "same-origin",
-      });
-      if (!response.ok) {
-        throw new Error("Unable to load strategy dashboard snapshot.");
-      }
+      const response = await fetch(snapshotUrl, { cache: "no-store", credentials: apiBase ? "include" : "same-origin" });
+      if (!response.ok) throw new Error("Unable to load the command centre.");
       return response.json();
     },
-    refetchInterval: dashboardApiUrl ? 30_000 : false,
+    refetchInterval: apiBase ? 30_000 : false,
   });
 
-  const performanceChart = useMemo(() => {
-    if (!data) return [];
-    return data.performance.rolling.map((item) => ({
-      window: item.window,
-      Accuracy: Number(item.accuracyPct.toFixed(1)),
-      "Trade Freq": Number(item.tradeFrequencyPct.toFixed(1)),
-      "Hit Rate": Number(item.hitRatePctOnTradeDays.toFixed(1)),
-      AUC: Number((item.auc * 100).toFixed(1)),
-    }));
-  }, [data]);
+  const chartData = useMemo(() => data?.performance.rolling.map((item) => ({
+    window: item.window, Accuracy: Number(item.accuracyPct.toFixed(1)), "Hit rate": Number(item.hitRatePctOnTradeDays.toFixed(1)), AUC: Number((item.auc * 100).toFixed(1)),
+  })) ?? [], [data]);
+  const matchingSignals = useMemo(() => (data?.signalHistory ?? []).filter((row) => JSON.stringify(row).toLowerCase().includes(deferredQuery.toLowerCase())).slice(0, 12), [data, deferredQuery]);
 
-  const formatPct = (value: number) => `${value.toFixed(2)}%`;
+  if (isLoading) return <LoadingScreen />;
+  if (error || !data) return <UnavailableScreen onRetry={() => void refetch()} />;
 
-  const signalTone = data?.signal.trade ? "default" : "secondary";
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background">
-        <div className="container mx-auto px-6 py-12">
-          <Card className="p-10 text-center">
-            <p className="text-lg text-muted-foreground">Loading Project90 strategy console...</p>
-          </Card>
-        </div>
-      </div>
-    );
-  }
-
-  if (error || !data) {
-    return (
-      <div className="min-h-screen bg-background">
-        <div className="container mx-auto px-6 py-12">
-          <Card className="p-10 text-center space-y-4">
-            <p className="text-lg text-muted-foreground">Strategy snapshot is unavailable right now.</p>
-            <Link to="/">
-              <Button>Back Home</Button>
-            </Link>
-          </Card>
-        </div>
-      </div>
-    );
-  }
+  const pnl = data.tradeAnalytics.realisedNetPnl;
+  const active = data.position.status !== "FLAT";
+  const isProfitable = pnl >= 0;
 
   return (
-    <div className="min-h-screen bg-background">
-      <nav className="border-b bg-card/70 backdrop-blur-sm sticky top-0 z-50">
-        <div className="container mx-auto px-6 py-4">
-          <div className="flex items-center justify-between gap-4">
-            <Link to="/" className="flex items-center gap-3">
-              <img src={logo} alt="90degrees Logo" className="h-12 w-12 object-contain" />
-              <div className="flex flex-col">
-                <span className="text-xl font-bold text-foreground">90degrees</span>
-                <span className="text-xs text-muted-foreground">Project90 Strategy Console</span>
-              </div>
-            </Link>
-            <div className="flex items-center gap-3">
-              <Badge variant="outline" className="px-3 py-1">
-                {data.operations.timezone}
-              </Badge>
-              <Link to="/">
-                <Button variant="ghost" className="gap-2">
-                  <ArrowLeft className="h-4 w-4" />
-                  Back Home
-                </Button>
-              </Link>
-            </div>
-          </div>
+    <div className="min-h-screen bg-[#f5f4ef] text-[#15271f] selection:bg-[#bfdfc8]">
+      <header className="sticky top-0 z-40 border-b border-[#1a3026]/10 bg-[#f5f4ef]/95 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-[1540px] items-center justify-between gap-4 px-5 py-3.5 sm:px-8">
+          <Link to="/" className="flex items-center gap-3"><img src={logo} alt="90degrees" className="h-9 w-9 object-contain" /><div><p className="font-bold leading-none">90degrees</p><p className="mt-1 text-[10px] font-bold uppercase tracking-[0.16em] text-[#789084]">Operator workspace</p></div></Link>
+          <div className="hidden items-center gap-2 lg:flex"><Badge variant="outline" className="border-[#1a3026]/15 bg-white text-[#496359]">{data.operations.timezone}</Badge><Badge variant="outline" className="border-[#1a3026]/15 bg-white text-[#496359]">Read-only web access</Badge></div>
+          <div className="flex items-center gap-2"><Button variant="outline" onClick={() => void refetch()} disabled={isFetching} className="gap-2 border-[#1a3026]/15 bg-white"><RefreshCw className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`} /> Refresh</Button><Link to="/app"><Button className="hidden gap-2 bg-[#152d22] hover:bg-[#234735] sm:flex">Workspace <ArrowUpRight className="h-4 w-4" /></Button></Link></div>
         </div>
-      </nav>
+      </header>
 
-      <main className="container mx-auto px-6 py-10 space-y-8">
-        <section className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div className="space-y-3">
-            <Badge className="bg-primary/10 text-primary border-primary/20 hover:bg-primary/10">
-              Project90 Live Monitor
-            </Badge>
-            <h1 className="text-4xl font-bold tracking-tight">Signal-gated intraday NIFTY volatility dashboard</h1>
-            <p className="max-w-3xl text-muted-foreground text-lg">
-              This console surfaces the nightly signal, separate close-forecast model, automation cadence,
-              and recent delivery events in one place so you can monitor the strategy without touching code.
-            </p>
+      <main className="mx-auto max-w-[1540px] space-y-6 px-5 py-7 sm:px-8 sm:py-10">
+        <section className="overflow-hidden rounded-[2rem] bg-[#152d22] px-6 py-7 text-white shadow-xl shadow-[#152d22]/15 sm:px-9 sm:py-9">
+          <div className="flex flex-col gap-7 xl:flex-row xl:items-end xl:justify-between">
+            <div><div className="mb-4 flex flex-wrap items-center gap-2"><Badge className="border border-white/15 bg-white/10 text-[#d5ecd9] hover:bg-white/10"><LockKeyhole className="mr-1 h-3 w-3" />Private operator environment</Badge><span className="text-xs text-[#a8c7af]">Updated {data.updatedAt}</span></div><h1 className="max-w-3xl font-serif text-4xl font-semibold tracking-[-0.04em] sm:text-5xl">Project90 command centre.</h1><p className="mt-4 max-w-2xl text-sm leading-6 text-[#c2d5c5] sm:text-base">Live strategy state, Dhan-linked execution records, P&amp;L, signal research, and automation health. The console observes the VPS; it does not submit orders.</p></div>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4"><HeroStatus label="Engine" value={data.controls.liveTradingEnabled ? "Armed" : "Disabled"} good={data.controls.liveTradingEnabled} /><HeroStatus label="Position" value={data.position.status} good={active} /><HeroStatus label="Data" value={data.dataHealth.latestDhanDailyDate || "Waiting"} good={Boolean(data.dataHealth.latestDhanDailyDate)} /><HeroStatus label="Telegram" value={data.operations.telegramEnabled ? "Online" : "Check"} good={data.operations.telegramEnabled} /></div>
           </div>
-          <Card className="min-w-[280px] bg-gradient-card border-2">
-            <CardContent className="p-5 space-y-2">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Database className="h-4 w-4" />
-                Snapshot source
-              </div>
-              <div className="flex items-center gap-2">
-                <Badge variant="outline">{data.sourceMode}</Badge>
-                <span className="text-sm text-muted-foreground">Updated {data.updatedAt}</span>
-              </div>
-              <p className="text-sm text-muted-foreground">{data.sourceNote}</p>
-            </CardContent>
-          </Card>
         </section>
 
-        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <Card className="border-2 bg-gradient-card">
-            <CardContent className="p-6 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Trade decision</span>
-                <Activity className="h-5 w-5 text-primary" />
-              </div>
-              <Badge variant={signalTone} className="text-sm px-3 py-1">
-                {data.signal.tradeLabel}
-              </Badge>
-              <p className="text-2xl font-bold">{formatPct(data.signal.probability * 100)}</p>
-              <p className="text-sm text-muted-foreground">
-                Generated {data.signal.generatedAt} for session {data.signal.signalDate}
-              </p>
-            </CardContent>
-          </Card>
+        <section className="grid gap-5 xl:grid-cols-[1.24fr_0.76fr]">
+          <Card className="border-[#1a3026]/10 bg-white shadow-sm"><CardHeader className="border-b border-[#1a3026]/10 pb-5"><div className="flex items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[0.15em] text-[#397757]">Live position</p><CardTitle className="mt-2 text-2xl">Dhan execution state</CardTitle><CardDescription className="mt-2">{data.position.detail}</CardDescription></div><Badge className={active ? "bg-[#d7f1dd] text-[#136e3a] hover:bg-[#d7f1dd]" : "bg-[#edf0ed] text-[#516158] hover:bg-[#edf0ed]"}>{data.position.status}</Badge></div></CardHeader><CardContent className="p-0">
+            {data.position.legs.length ? <div className="divide-y divide-[#1a3026]/10">{data.position.legs.map((leg) => <div key={leg.name} className="grid gap-3 px-6 py-5 sm:grid-cols-[0.7fr_1fr_1fr_1fr_auto] sm:items-center"><div><p className="font-bold">{leg.name}</p><p className="text-xs text-[#718078]">{leg.securityId}</p></div><div><p className="text-xs text-[#718078]">Strike</p><p className="font-semibold">{leg.strike || "—"}</p></div><div><p className="text-xs text-[#718078]">Entry price</p><p className="font-semibold">{leg.entryPrice || "—"}</p></div><div><p className="text-xs text-[#718078]">Filled quantity</p><p className="font-semibold">{leg.filledQty || "—"}</p></div><Badge variant="outline" className="w-fit border-[#1a3026]/15">{leg.status}</Badge></div>)}</div> : <EmptyState icon={Activity} title="No open position" body="The executor has not recorded an active Project90 position. New Dhan order activity will appear here automatically." />}
+          </CardContent></Card>
 
-          <Card className="border-2 bg-gradient-card">
-            <CardContent className="p-6 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Separate forecast</span>
-                <TrendingUp className="h-5 w-5 text-secondary" />
-              </div>
-              <p className="text-2xl font-bold">{data.forecast.predictedNextClose.toFixed(2)}</p>
-              <p className="text-sm text-muted-foreground">
-                Predicted next close from least-squares + ridge + RF ensemble
-              </p>
-              <Badge variant="outline">
-                {data.forecast.interpretation.directionBias} / {data.forecast.interpretation.magnitudeBucket}
-              </Badge>
-            </CardContent>
-          </Card>
-
-          <Card className="border-2 bg-gradient-card">
-            <CardContent className="p-6 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Classifier quality</span>
-                <Gauge className="h-5 w-5 text-accent" />
-              </div>
-              <p className="text-2xl font-bold">{data.performance.overall.auc.toFixed(3)}</p>
-              <p className="text-sm text-muted-foreground">
-                AUC across {data.performance.overall.evaluationDays} evaluated sessions
-              </p>
-              <div className="flex gap-2 text-xs text-muted-foreground">
-                <span>Accuracy {data.performance.overall.accuracyPct.toFixed(1)}%</span>
-                <span>Trade freq {data.performance.overall.tradeFrequencyPct.toFixed(1)}%</span>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-2 bg-gradient-card">
-            <CardContent className="p-6 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Automation</span>
-                <ShieldCheck className="h-5 w-5 text-primary" />
-              </div>
-              <p className="text-2xl font-bold">{data.operations.vpsMode ? "VPS Live" : "Manual"}</p>
-              <div className="text-sm text-muted-foreground space-y-1">
-                <p>Entry {data.operations.entryWindow}</p>
-                <p>Exit {data.operations.exitTime}</p>
-                <p>Telegram {data.operations.telegramEnabled ? "enabled" : "disabled"}</p>
-              </div>
-            </CardContent>
-          </Card>
+          <Card className="border-[#1a3026]/10 bg-[#e8f0e7] shadow-sm"><CardHeader><p className="text-xs font-bold uppercase tracking-[0.15em] text-[#397757]">Realised P&amp;L</p><CardTitle className="mt-2 text-4xl tracking-tight">{currency(pnl)}</CardTitle><CardDescription>Completed trade ledger only. No unrealised P&amp;L is inferred.</CardDescription></CardHeader><CardContent className="grid grid-cols-2 gap-y-6"><Metric label="Completed" value={String(data.tradeAnalytics.completedTrades)} detail="execution records" /><Metric label="Win rate" value={`${data.tradeAnalytics.winRatePct.toFixed(1)}%`} detail={`${data.tradeAnalytics.wins} wins / ${data.tradeAnalytics.losses} losses`} positive={data.tradeAnalytics.winRatePct >= 50} /><Metric label="Average trade" value={currency(data.tradeAnalytics.averageTradePnl)} detail="net P&L" positive={data.tradeAnalytics.averageTradePnl >= 0} /><Metric label="Ledger state" value={data.tradeAnalytics.records ? "Ready" : "Waiting"} detail={data.tradeAnalytics.latestTradeDate || "no execution history"} positive={Boolean(data.tradeAnalytics.records)} /></CardContent></Card>
         </section>
 
-        <section className="grid gap-6 xl:grid-cols-[1.4fr_0.9fr]">
-          <Card className="border-2">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <LineChart className="h-5 w-5 text-primary" />
-                Rolling model performance
-              </CardTitle>
-              <CardDescription>
-                Accuracy, trade frequency, hit rate, and AUC trend across recent rolling windows.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="h-[360px] pt-2">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={performanceChart}>
-                  <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-                  <XAxis dataKey="window" />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="Accuracy" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} />
-                  <Bar dataKey="Hit Rate" fill="hsl(var(--secondary))" radius={[6, 6, 0, 0]} />
-                  <Bar dataKey="Trade Freq" fill="hsl(var(--accent))" radius={[6, 6, 0, 0]} />
-                  <Bar dataKey="AUC" fill="hsl(var(--muted-foreground))" radius={[6, 6, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-
-          <Card className="border-2 bg-gradient-card">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Radar className="h-5 w-5 text-secondary" />
-                Forecast interpretation
-              </CardTitle>
-              <CardDescription>
-                Separate model output. This does not alter the trade executor.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-5">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="rounded-xl border bg-background/70 p-4">
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Current close</p>
-                  <p className="mt-2 text-2xl font-bold">{data.forecast.currentClose.toFixed(2)}</p>
-                </div>
-                <div className="rounded-xl border bg-background/70 p-4">
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Move estimate</p>
-                  <p className="mt-2 text-2xl font-bold">{data.forecast.predictedMovePoints.toFixed(2)}</p>
-                </div>
-              </div>
-
-              <div className="rounded-2xl border bg-background/70 p-5 space-y-3">
-                <div className="flex flex-wrap gap-2">
-                  <Badge variant="outline">{data.forecast.interpretation.directionBias}</Badge>
-                  <Badge variant="outline">{data.forecast.interpretation.magnitudeBucket}</Badge>
-                  <Badge variant="outline">{data.forecast.interpretation.uncertaintyBucket}</Badge>
-                </div>
-                <p className="text-sm leading-6 text-muted-foreground">
-                  {data.forecast.interpretation.summaryText}
-                </p>
-              </div>
-
-              <div className="h-[140px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart
-                    data={[
-                      { point: "Low", value: data.forecast.expectedMoveRangePoints[0] },
-                      { point: "Base", value: data.forecast.predictedMovePoints },
-                      { point: "High", value: data.forecast.expectedMoveRangePoints[1] },
-                    ]}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-                    <XAxis dataKey="point" />
-                    <YAxis />
-                    <Tooltip />
-                    <Area type="monotone" dataKey="value" stroke="hsl(var(--secondary))" fill="hsl(var(--secondary) / 0.18)" />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
+        <section className="grid gap-5 xl:grid-cols-[0.76fr_1.24fr]">
+          <Card className="border-[#1a3026]/10 bg-white shadow-sm"><CardHeader><p className="text-xs font-bold uppercase tracking-[0.15em] text-[#397757]">Nightly decision</p><div className="mt-3 flex flex-wrap items-center gap-3"><Badge className={signalClass(data.signal.trade)}>{data.signal.tradeLabel}</Badge><span className="text-sm text-[#65756c]">For session {data.signal.signalDate}</span></div></CardHeader><CardContent className="space-y-5"><div className="grid grid-cols-2 gap-4"><MiniValue label="Move probability" value={`${(data.signal.probability * 100).toFixed(1)}%`} /><MiniValue label="Model threshold" value={`${(data.signal.threshold * 100).toFixed(0)}%`} /><MiniValue label="Previous close" value={data.signal.previousClose.toFixed(2)} /><MiniValue label="Confidence" value={data.signal.confidence} /></div><div className="rounded-2xl border border-[#1a3026]/10 bg-[#f8faf7] p-4 text-sm text-[#5f7168]"><span className="font-bold text-[#263b30]">Decision rule: </span>The classifier gates whether Project90 can participate. It does not use the separate close forecast to submit orders.</div></CardContent></Card>
+          <Card className="border-[#1a3026]/10 bg-white shadow-sm"><CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0"><div><p className="text-xs font-bold uppercase tracking-[0.15em] text-[#397757]">Forecast research layer</p><CardTitle className="mt-2">Directional context, kept separate</CardTitle><CardDescription className="mt-2">{data.forecast.interpretation.summaryText}</CardDescription></div><Radar className="h-6 w-6 text-[#397757]" /></CardHeader><CardContent className="grid gap-5 border-t border-[#1a3026]/10 pt-5 sm:grid-cols-4"><Metric label="Bias" value={data.forecast.interpretation.directionBias} detail={data.forecast.interpretation.magnitudeBucket} /><Metric label="Next close" value={data.forecast.predictedNextClose.toFixed(2)} detail={`from ${data.forecast.currentClose.toFixed(2)}`} /><Metric label="Expected move" value={`${data.forecast.predictedMovePoints > 0 ? "+" : ""}${data.forecast.predictedMovePoints.toFixed(1)}`} detail={`${data.forecast.predictedMovePct.toFixed(2)}%`} positive={data.forecast.predictedMovePoints >= 0} /><Metric label="Range" value={`${data.forecast.expectedMoveRangePoints[0].toFixed(0)} / ${data.forecast.expectedMoveRangePoints[1].toFixed(0)}`} detail={data.forecast.interpretation.uncertaintyBucket} /></CardContent></Card>
         </section>
 
-        <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-          <Card className="border-2">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Clock3 className="h-5 w-5 text-primary" />
-                Automation timeline
-              </CardTitle>
-              <CardDescription>
-                Daily live cadence running on VPS in {data.operations.timezone}.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2">
-                <Card className="p-4 bg-muted/20">
-                  <p className="text-sm text-muted-foreground">Token refresh</p>
-                  <p className="mt-2 font-semibold">{data.operations.tokenRefreshTimes.join(" • ")}</p>
-                </Card>
-                <Card className="p-4 bg-muted/20">
-                  <p className="text-sm text-muted-foreground">Entry executor</p>
-                  <p className="mt-2 font-semibold">{data.operations.entryWindow}</p>
-                </Card>
-                <Card className="p-4 bg-muted/20">
-                  <p className="text-sm text-muted-foreground">Exit executor</p>
-                  <p className="mt-2 font-semibold">{data.operations.exitTime}</p>
-                </Card>
-                <Card className="p-4 bg-muted/20">
-                  <p className="text-sm text-muted-foreground">Nightly signal</p>
-                  <p className="mt-2 font-semibold">{data.operations.signalTime}</p>
-                </Card>
-              </div>
-              <div className="rounded-2xl border p-5 bg-gradient-card">
-                <div className="flex items-start gap-3">
-                  <Bot className="h-5 w-5 text-primary mt-0.5" />
-                  <div className="space-y-2">
-                    <p className="font-semibold">Trade engine isolation is preserved</p>
-                    <p className="text-sm text-muted-foreground">
-                      The nightly classifier controls trade participation. The separate close forecast is appended after
-                      the main signal and only sends its own interpretation message.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-2">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Send className="h-5 w-5 text-secondary" />
-                Recent events
-              </CardTitle>
-              <CardDescription>
-                Latest strategy-side deliveries and lifecycle markers.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {data.recentEvents.map((event) => (
-                <div key={`${event.timestamp}-${event.title}`} className="rounded-xl border p-4 bg-muted/20">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="font-semibold">{event.title}</p>
-                    <span className="text-xs text-muted-foreground">{event.timestamp}</span>
-                  </div>
-                  <p className="mt-2 text-sm text-muted-foreground">{event.detail}</p>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
+        <section className="grid gap-5 xl:grid-cols-[1.13fr_0.87fr]">
+          <Card className="border-[#1a3026]/10 bg-white shadow-sm"><CardHeader><div className="flex items-center gap-3"><ChartNoAxesCombined className="h-5 w-5 text-[#397757]" /><div><CardTitle>Model evaluation</CardTitle><CardDescription>Rolling validation, not a guarantee of future results.</CardDescription></div></div></CardHeader><CardContent className="h-[280px] pt-2"><ResponsiveContainer width="100%" height="100%"><BarChart data={chartData}><CartesianGrid vertical={false} stroke="#dfe6e0" /><XAxis dataKey="window" axisLine={false} tickLine={false} /><YAxis axisLine={false} tickLine={false} /><Tooltip /><Bar dataKey="Accuracy" fill="#1c6240" radius={[5, 5, 0, 0]} /><Bar dataKey="Hit rate" fill="#8cba96" radius={[5, 5, 0, 0]} /><Bar dataKey="AUC" fill="#d6a850" radius={[5, 5, 0, 0]} /></BarChart></ResponsiveContainer></CardContent><CardContent className="grid grid-cols-2 gap-4 border-t border-[#1a3026]/10 py-5 sm:grid-cols-4"><MiniValue label="AUC" value={data.performance.overall.auc.toFixed(3)} /><MiniValue label="Accuracy" value={`${data.performance.overall.accuracyPct.toFixed(1)}%`} /><MiniValue label="Hit rate" value={`${data.performance.overall.hitRatePctOnTradeDays.toFixed(1)}%`} /><MiniValue label="Sessions" value={String(data.performance.overall.evaluationDays)} /></CardContent></Card>
+          <Card className="border-[#1a3026]/10 bg-[#152d22] text-white shadow-sm"><CardHeader><div className="flex items-center gap-3"><CalendarClock className="h-5 w-5 text-[#a9d8b3]" /><div><CardTitle className="text-white">Automation cadence</CardTitle><CardDescription className="text-[#b8cdbc]">Production VPS schedule, Asia/Kolkata.</CardDescription></div></div></CardHeader><CardContent className="space-y-3">{[["Token refresh", data.operations.tokenRefreshTimes.join(" · ")], ["Entry guard", data.operations.entryWindow], ["Exit guard", data.operations.exitTime], ["Nightly model", data.operations.signalTime]].map(([label, value]) => <div key={label} className="flex items-center justify-between border-b border-white/10 pb-3 text-sm"><span className="text-[#b8cdbc]">{label}</span><span className="font-semibold">{value}</span></div>)}<div className="pt-2 text-xs leading-5 text-[#a9c1ae]">Web controls are intentionally disabled. The browser cannot expose broker tokens or silently change trading behaviour.</div></CardContent></Card>
         </section>
+
+        <section className="grid gap-5 xl:grid-cols-[1.25fr_0.75fr]">
+          <Card className="overflow-hidden border-[#1a3026]/10 bg-white shadow-sm"><CardHeader className="border-b border-[#1a3026]/10"><div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-xs font-bold uppercase tracking-[0.15em] text-[#397757]">Trade ledger</p><CardTitle className="mt-2">Live and historical Dhan executions</CardTitle><CardDescription>Entries are written by the VPS executor after it receives broker order status.</CardDescription></div><Badge variant="outline" className="w-fit border-[#1a3026]/15">{data.tradeAnalytics.records} records</Badge></div></CardHeader><CardContent className="p-0">{data.recentTrades.length ? <TradeTable trades={data.recentTrades} /> : <EmptyState icon={Landmark} title="No trade ledger records yet" body="When a position is completed, the executor will append its entry, exit, and realised P&L to this ledger automatically." />}</CardContent></Card>
+          <Card className="border-[#1a3026]/10 bg-white shadow-sm"><CardHeader><div className="flex items-center gap-3"><Clock3 className="h-5 w-5 text-[#397757]" /><div><CardTitle>Operations audit</CardTitle><CardDescription>Latest VPS lifecycle records.</CardDescription></div></div></CardHeader><CardContent className="max-h-[360px] space-y-3 overflow-auto pr-2">{data.recentEvents.length ? data.recentEvents.map((event) => <div key={`${event.timestamp}-${event.title}`} className="rounded-xl border border-[#1a3026]/10 bg-[#f8faf7] p-3"><div className="flex justify-between gap-3"><p className="text-sm font-bold">{event.title}</p><p className="whitespace-nowrap text-[11px] text-[#77877e]">{event.timestamp}</p></div><p className="mt-2 text-xs leading-5 text-[#66766d]">{event.detail}</p></div>) : <p className="text-sm text-[#687970]">No recent VPS events are available.</p>}</CardContent></Card>
+        </section>
+
+        <section className="overflow-hidden rounded-[1.5rem] border border-[#1a3026]/10 bg-white shadow-sm"><div className="flex flex-col gap-4 border-b border-[#1a3026]/10 px-6 py-5 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-xs font-bold uppercase tracking-[0.15em] text-[#397757]">Research record</p><h2 className="mt-1 text-xl font-bold">Historical signal outcomes</h2></div><div className="relative w-full sm:w-72"><Filter className="absolute left-3 top-3 h-4 w-4 text-[#77877e]" /><Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Filter date, signal or outcome" className="border-[#1a3026]/15 bg-[#f8faf7] pl-9" /></div></div><div className="overflow-x-auto"><table className="w-full min-w-[760px] text-left text-sm"><thead className="bg-[#f1f5f0] text-[11px] uppercase tracking-[0.1em] text-[#687970]"><tr>{["Session", "Close", "Probability", "Signal", "Actual move", "Outcome"].map((heading) => <th key={heading} className="px-6 py-3 font-bold">{heading}</th>)}</tr></thead><tbody>{matchingSignals.map((row, index) => <tr key={`${row.SignalDate}-${index}`} className="border-t border-[#1a3026]/8"><td className="px-6 py-4 font-medium">{row.SignalDate || "—"}</td><td className="px-6 py-4">{row.Close || "—"}</td><td className="px-6 py-4">{row.Probability ? `${(number(row.Probability) * 100).toFixed(1)}%` : "—"}</td><td className="px-6 py-4"><Badge variant="outline" className="border-[#1a3026]/15">{row.Signal || "—"}</Badge></td><td className="px-6 py-4">{row.ActualMove ? `${row.ActualMove}%` : "Pending"}</td><td className="px-6 py-4"><span className={row.Correct === "YES" ? "font-semibold text-[#11713a]" : "text-[#687970]"}>{row.Correct || "Pending"}</span></td></tr>)}</tbody></table>{!matchingSignals.length && <div className="p-8 text-center text-sm text-[#687970]">No research records match this filter.</div>}</div></section>
+
+        <p className="px-1 pb-5 text-center text-xs text-[#74837a]">90degrees operator workspace · Source: {data.sourceMode} · {data.sourceNote}</p>
       </main>
     </div>
   );
 };
+
+const HeroStatus = ({ label, value, good }: { label: string; value: string; good?: boolean }) => <div className="min-w-[105px] rounded-xl border border-white/10 bg-white/5 p-3"><p className="text-[10px] font-bold uppercase tracking-[0.13em] text-[#9bbba2]">{label}</p><p className={`mt-1 text-sm font-bold ${good ? "text-[#c5edcb]" : "text-white"}`}>{value}</p></div>;
+const MiniValue = ({ label, value }: { label: string; value: string }) => <div className="rounded-xl bg-[#f2f6f2] p-3"><p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#75857c]">{label}</p><p className="mt-1 text-sm font-bold text-[#23382c]">{value}</p></div>;
+const EmptyState = ({ icon: Icon, title, body }: { icon: typeof Activity; title: string; body: string }) => <div className="flex flex-col items-center px-8 py-12 text-center"><div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#edf4ed] text-[#397757]"><Icon className="h-5 w-5" /></div><h3 className="mt-4 font-bold">{title}</h3><p className="mt-2 max-w-md text-sm leading-6 text-[#687970]">{body}</p></div>;
+const TradeTable = ({ trades }: { trades: Trade[] }) => <div className="overflow-x-auto"><table className="w-full min-w-[760px] text-left text-sm"><thead className="bg-[#f1f5f0] text-[11px] uppercase tracking-[0.1em] text-[#687970]"><tr>{["Date", "Entry / exit", "CE / PE", "Quantity", "Status", "Net P&L"].map((heading) => <th key={heading} className="px-6 py-3 font-bold">{heading}</th>)}</tr></thead><tbody>{trades.map((trade, index) => { const pnl = number(trade.NetPnL || trade.GrossPnL); return <tr key={`${trade.TradeDate}-${index}`} className="border-t border-[#1a3026]/8"><td className="px-6 py-4 font-medium">{trade.TradeDate || "—"}</td><td className="px-6 py-4 text-[#66766d]">{trade.EntryTime || "—"} <span className="mx-1">/</span> {trade.ExitTime || "—"}</td><td className="px-6 py-4">{trade.CEEntry || "—"} <span className="text-[#87948d]">/</span> {trade.PEEntry || "—"}</td><td className="px-6 py-4">{trade.LotQty || "—"}</td><td className="px-6 py-4"><Badge variant="outline" className="border-[#1a3026]/15">{trade.Status || "—"}</Badge></td><td className={`px-6 py-4 font-bold ${pnl >= 0 ? "text-[#11713a]" : "text-[#9b382e]"}`}>{currency(pnl)}</td></tr>; })}</tbody></table></div>;
+const LoadingScreen = () => <div className="grid min-h-screen place-items-center bg-[#f5f4ef]"><div className="text-center"><RefreshCw className="mx-auto h-7 w-7 animate-spin text-[#397757]" /><p className="mt-4 font-semibold">Loading the operator workspace…</p></div></div>;
+const UnavailableScreen = ({ onRetry }: { onRetry: () => void }) => <div className="grid min-h-screen place-items-center bg-[#f5f4ef] p-6"><Card className="max-w-md border-[#1a3026]/10 bg-white text-center"><CardContent className="p-9"><Database className="mx-auto h-8 w-8 text-[#397757]" /><h1 className="mt-5 text-xl font-bold">Console data is unavailable</h1><p className="mt-3 text-sm leading-6 text-[#687970]">Your login is valid, but the protected VPS data source could not be reached. Refresh or sign in to the data endpoint once, then return here.</p><Button onClick={onRetry} className="mt-6 gap-2 bg-[#152d22] hover:bg-[#234735]"><RefreshCw className="h-4 w-4" /> Retry connection</Button></CardContent></Card></div>;
 
 export default StrategyDashboard;
