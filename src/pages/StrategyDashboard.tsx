@@ -95,15 +95,24 @@ type Snapshot = {
 };
 
 const StrategyDashboard = () => {
+  const dashboardApiUrl = import.meta.env.VITE_PROJECT90_API_URL?.replace(/\/$/, "");
+  const snapshotUrl = dashboardApiUrl
+    ? `${dashboardApiUrl}/api/v1/overview`
+    : "/strategy/project90-dashboard.json";
+
   const { data, isLoading, error } = useQuery({
     queryKey: ["strategy-dashboard"],
     queryFn: async (): Promise<Snapshot> => {
-      const response = await fetch("/strategy/project90-dashboard.json", { cache: "no-store" });
+      const response = await fetch(snapshotUrl, {
+        cache: "no-store",
+        credentials: dashboardApiUrl ? "include" : "same-origin",
+      });
       if (!response.ok) {
         throw new Error("Unable to load strategy dashboard snapshot.");
       }
       return response.json();
     },
+    refetchInterval: dashboardApiUrl ? 30_000 : false,
   });
 
   const performanceChart = useMemo(() => {
