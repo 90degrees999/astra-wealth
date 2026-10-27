@@ -20,6 +20,14 @@ type Trade = {
   CEExit?: string; PEExit?: string; LotQty?: string;
 };
 
+type Strategy = {
+  id: "project90" | "intraday90" | "shortvol90";
+  name: string; category: string; status: string; enabled: boolean; detail: string;
+  generatedAt: string; signalDate: string; signalLabel: string; probability: number;
+  threshold: number; direction: string;
+  metrics: { evaluationDays: number; accuracyPct: number; hitRatePctOnTradeDays: number; tradeFrequencyPct: number; auc: number };
+};
+
 type Snapshot = {
   updatedAt: string; sourceMode: string; sourceNote: string;
   signal: { generatedAt: string; signalDate: string; previousClose: number; probability: number; confidence: string; threshold: number; trade: boolean; tradeLabel: string; modelVersion?: string; signalFor?: string };
@@ -27,6 +35,7 @@ type Snapshot = {
   performance: { overall: { evaluationDays: number; accuracyPct: number; tradeFrequencyPct: number; hitRatePctOnTradeDays: number; auc: number }; rolling: Array<{ window: string; accuracyPct: number; tradeFrequencyPct: number; hitRatePctOnTradeDays: number; auc: number }> };
   operations: { timezone: string; entryWindow: string; exitTime: string; signalTime: string; tokenRefreshTimes: string[]; telegramEnabled: boolean; vpsMode: boolean };
   controls: { liveTradingEnabled: boolean; writeActionsEnabled: boolean; shortVol90: string; intraday90: string };
+  strategies?: Strategy[];
   dataHealth: { latestDhanDailyDate: string | null; signalAgeSeconds: number | null; signalFilePresent: boolean; orderStatePresent: boolean };
   dataQuality?: { status: string; dataAsOf: string; expectedCompletedSession: string; sourceForLatestSession: string; recentWeekdayGaps: string[] };
   modelGovernance?: {
@@ -57,6 +66,7 @@ const Metric = ({ label, value, detail, positive }: { label: string; value: stri
 
 const StrategyDashboard = () => {
   const [query, setQuery] = useState("");
+  const [selectedStrategyId, setSelectedStrategyId] = useState<Strategy["id"]>("project90");
   const deferredQuery = useDeferredValue(query);
   const snapshotUrl = apiBase ? `${apiBase}/api/v1/overview` : "/strategy/project90-dashboard.json";
   const { data, isLoading, error, refetch, isFetching } = useQuery({
@@ -82,6 +92,10 @@ const StrategyDashboard = () => {
   const governance = data.modelGovernance;
   const researchOnly = governance ? !governance.executionEligible : true;
   const sourceLabel = data.dataQuality?.sourceForLatestSession?.replaceAll("_", " ") || data.sourceMode;
+  const strategies: Strategy[] = data.strategies?.length ? data.strategies : [
+    { id: "project90", name: "Project90", category: "Next-session classifier", status: researchOnly ? "RESEARCH_ONLY" : "REVIEWED", enabled: false, detail: governance?.reason || "Model-governance review required.", generatedAt: data.signal.generatedAt, signalDate: data.signal.signalDate, signalLabel: data.signal.tradeLabel, probability: data.signal.probability, threshold: data.signal.threshold, direction: "N/A", metrics: { evaluationDays: governance?.holdout.evaluationDays ?? data.performance.overall.evaluationDays, accuracyPct: governance?.holdout.accuracyPct ?? data.performance.overall.accuracyPct, hitRatePctOnTradeDays: 0, tradeFrequencyPct: 0, auc: governance?.holdout.auc ?? data.performance.overall.auc } },
+  ];
+  const selectedStrategy = strategies.find((strategy) => strategy.id === selectedStrategyId) || strategies[0];
 
   return (
     <div className="min-h-screen bg-[#f5f4ef] text-[#15271f] selection:bg-[#bfdfc8]">
@@ -104,10 +118,13 @@ const StrategyDashboard = () => {
         {researchOnly && <section className="rounded-2xl border border-amber-300 bg-amber-50 px-5 py-4 text-amber-950 shadow-sm"><div className="flex gap-3"><ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" /><div><p className="font-bold">Research mode: order submission is locked</p><p className="mt-1 text-sm leading-6 text-amber-900">{governance?.reason || "The dashboard is read-only. Trading remains disabled until the model completes independent validation and formal risk review."}</p></div></div></section>}
 
         <section id="overview" className="scroll-mt-24 grid gap-3 md:grid-cols-3">
-          <StrategyShelf name="Project90" state={researchOnly ? "Research review" : "Reviewed"} detail="Next-session NIFTY move classifier" icon={Workflow} tone={researchOnly ? "amber" : "green"} selected />
-          <StrategyShelf name="Short Vol 90" state={data.controls.shortVol90.replaceAll("_", " ")} detail="Iron-condor research and risk design" icon={TrendingDown} tone="slate" />
-          <StrategyShelf name="Intraday 90" state={data.controls.intraday90.replaceAll("_", " ")} detail="Separate intraday research pipeline" icon={Gauge} tone="slate" />
+          {strategies.map((strategy) => <StrategyShelf key={strategy.id} name={strategy.name} state={strategy.status.replaceAll("_", " ")} detail={strategy.category} icon={strategy.id === "project90" ? Workflow : strategy.id === "intraday90" ? Gauge : TrendingDown} tone={strategy.status === "PAUSED" ? "slate" : "amber"} selected={selectedStrategy.id === strategy.id} onSelect={() => setSelectedStrategyId(strategy.id)} />)}
         </section>
+
+        {selectedStrategy && <section className="grid gap-5 rounded-[1.5rem] border border-[#1a3026]/10 bg-white p-5 shadow-sm lg:grid-cols-[1.2fr_0.8fr] lg:p-6">
+          <div><div className="flex flex-wrap items-center gap-3"><Badge className="border border-amber-200 bg-amber-50 text-amber-900 hover:bg-amber-50">{selectedStrategy.status.replaceAll("_", " ")}</Badge><span className="text-xs font-bold uppercase tracking-[0.14em] text-[#75857c]">{selectedStrategy.category}</span></div><h2 className="mt-4 font-serif text-3xl font-semibold tracking-tight">{selectedStrategy.name}</h2><p className="mt-3 max-w-2xl text-sm leading-6 text-[#5f7168]">{selectedStrategy.detail}</p><div className="mt-5 rounded-xl border border-[#1a3026]/10 bg-[#f8faf7] px-4 py-3 text-sm text-[#53675b]"><span className="font-bold text-[#23382c]">Latest research output: </span>{selectedStrategy.signalLabel} · generated {selectedStrategy.generatedAt}</div></div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-2"><MiniValue label="Probability" value={`${(selectedStrategy.probability * 100).toFixed(1)}%`} /><MiniValue label="Threshold" value={`${(selectedStrategy.threshold * 100).toFixed(0)}%`} /><MiniValue label="Direction" value={selectedStrategy.direction} /><MiniValue label="Holdout AUC" value={selectedStrategy.metrics.auc ? selectedStrategy.metrics.auc.toFixed(3) : "Pending"} /><MiniValue label="Accuracy" value={selectedStrategy.metrics.evaluationDays ? `${selectedStrategy.metrics.accuracyPct.toFixed(1)}%` : "Pending"} /><MiniValue label="Sessions" value={selectedStrategy.metrics.evaluationDays ? String(selectedStrategy.metrics.evaluationDays) : "Pending"} /></div>
+        </section>}
 
         <section className="grid gap-5 xl:grid-cols-[1.24fr_0.76fr]">
           <Card className="border-[#1a3026]/10 bg-white shadow-sm"><CardHeader className="border-b border-[#1a3026]/10 pb-5"><div className="flex items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[0.15em] text-[#397757]">Live position</p><CardTitle className="mt-2 text-2xl">Dhan execution state</CardTitle><CardDescription className="mt-2">{data.position.detail}</CardDescription></div><Badge className={active ? "bg-[#d7f1dd] text-[#136e3a] hover:bg-[#d7f1dd]" : "bg-[#edf0ed] text-[#516158] hover:bg-[#edf0ed]"}>{data.position.status}</Badge></div></CardHeader><CardContent className="p-0">
@@ -141,13 +158,13 @@ const StrategyDashboard = () => {
 };
 
 const HeroStatus = ({ label, value, good }: { label: string; value: string; good?: boolean }) => <div className="min-w-[105px] rounded-xl border border-white/10 bg-white/5 p-3"><p className="text-[10px] font-bold uppercase tracking-[0.13em] text-[#9bbba2]">{label}</p><p className={`mt-1 text-sm font-bold ${good ? "text-[#c5edcb]" : "text-white"}`}>{value}</p></div>;
-const StrategyShelf = ({ name, state, detail, icon: Icon, tone, selected = false }: { name: string; state: string; detail: string; icon: typeof Activity; tone: "green" | "amber" | "slate"; selected?: boolean }) => {
+const StrategyShelf = ({ name, state, detail, icon: Icon, tone, selected = false, onSelect }: { name: string; state: string; detail: string; icon: typeof Activity; tone: "green" | "amber" | "slate"; selected?: boolean; onSelect: () => void }) => {
   const palette = {
     green: "border-emerald-200 bg-emerald-50 text-emerald-800",
     amber: "border-amber-200 bg-amber-50 text-amber-900",
     slate: "border-[#1a3026]/10 bg-white text-[#53675b]",
   }[tone];
-  return <div className={`group rounded-2xl border p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${selected ? "border-[#397757] bg-[#173827] text-white" : "border-[#1a3026]/10 bg-white"}`}><div className="flex items-start justify-between gap-3"><div className={`grid h-9 w-9 place-items-center rounded-xl ${selected ? "bg-white/10 text-[#bfe5c6]" : "bg-[#edf4ed] text-[#397757]"}`}><Icon className="h-4 w-4" /></div><Badge variant="outline" className={selected ? "border-white/15 bg-white/10 text-[#d6eddb]" : palette}>{state}</Badge></div><p className="mt-4 font-bold">{name}</p><p className={`mt-1 text-xs leading-5 ${selected ? "text-[#b7cfbc]" : "text-[#6b7b72]"}`}>{detail}</p></div>;
+  return <button type="button" onClick={onSelect} aria-pressed={selected} className={`group rounded-2xl border p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[#397757] focus:ring-offset-2 ${selected ? "border-[#397757] bg-[#173827] text-white" : "border-[#1a3026]/10 bg-white"}`}><div className="flex items-start justify-between gap-3"><div className={`grid h-9 w-9 place-items-center rounded-xl ${selected ? "bg-white/10 text-[#bfe5c6]" : "bg-[#edf4ed] text-[#397757]"}`}><Icon className="h-4 w-4" /></div><Badge variant="outline" className={selected ? "border-white/15 bg-white/10 text-[#d6eddb]" : palette}>{state}</Badge></div><p className="mt-4 font-bold">{name}</p><p className={`mt-1 text-xs leading-5 ${selected ? "text-[#b7cfbc]" : "text-[#6b7b72]"}`}>{detail}</p></button>;
 };
 const MiniValue = ({ label, value }: { label: string; value: string }) => <div className="rounded-xl bg-[#f2f6f2] p-3"><p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#75857c]">{label}</p><p className="mt-1 text-sm font-bold text-[#23382c]">{value}</p></div>;
 const EmptyState = ({ icon: Icon, title, body }: { icon: typeof Activity; title: string; body: string }) => <div className="flex flex-col items-center px-8 py-12 text-center"><div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#edf4ed] text-[#397757]"><Icon className="h-5 w-5" /></div><h3 className="mt-4 font-bold">{title}</h3><p className="mt-2 max-w-md text-sm leading-6 text-[#687970]">{body}</p></div>;
